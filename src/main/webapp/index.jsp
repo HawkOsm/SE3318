@@ -112,8 +112,22 @@
     <div class="container">
         <p>System Status: Online</p>
         <h1>Hello World</h1>
-        <button class="btn" onclick="alert('Prodüksiyon başarıyla tamamlandı!')">Initialize</button>
+        <button class="btn" onclick="exportToPDF()">Export to PDF</button>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+        function exportToPDF() {
+            const element = document.body;
+            const opt = {
+                margin:       0,
+                filename:     'page-export.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+    </script>
 </body>
 </html>
