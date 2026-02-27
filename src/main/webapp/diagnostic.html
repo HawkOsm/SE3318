@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TODO API Diagnostic Tool</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #00d2ff;
+            margin-top: 0;
+        }
+        button {
+            background: #00d2ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #00b8e6;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-left: 3px solid #00d2ff;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            border-left-color: #4caf50;
+            background: #f1f8f4;
+        }
+        .error {
+            border-left-color: #f44336;
+            background: #fef1f1;
+        }
+        input {
+            padding: 8px;
+            width: 300px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-ok {
+            background: #4caf50;
+            color: white;
+        }
+        .status-error {
+            background: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 TODO API Diagnostic Tool</h1>
+    <p>This tool helps diagnose issues with the TODO list backend API.</p>
+
+    <!-- Test 1: API Accessibility -->
+    <div class="test-section">
+        <h2>Test 1: Check API Accessibility</h2>
+        <p>Tests if the backend API is running and accessible.</p>
+        <button onclick="testAPIConnection()">Run Test</button>
+        <div id="test1Result"></div>
+    </div>
+
+    <!-- Test 2: GET All Tasks -->
+    <div class="test-section">
+        <h2>Test 2: GET All Tasks</h2>
+        <p>Retrieves all tasks from the database.</p>
+        <button onclick="testGetAllTasks()">Get All Tasks</button>
+        <div id="test2Result"></div>
+    </div>
+
+    <!-- Test 3: POST Create Task -->
+    <div class="test-section">
+        <h2>Test 3: POST Create Task</h2>
+        <p>Creates a new task in the database.</p>
+        <input type="text" id="testTaskTitle" placeholder="Enter task title" value="Test Task">
+        <button onclick="testCreateTask()">Create Task</button>
+        <div id="test3Result"></div>
+    </div>
+
+    <!-- Test 4: Database Check -->
+    <div class="test-section">
+        <h2>Test 4: Database Status</h2>
+        <p>Information about the backend configuration.</p>
+        <button onclick="testDatabaseStatus()">Check Status</button>
+        <div id="test4Result"></div>
+    </div>
+
+    <!-- Test 5: Browser Info -->
+    <div class="test-section">
+        <h2>Test 5: Browser Information</h2>
+        <p>Your browser and network configuration.</p>
+        <button onclick="testBrowserInfo()">Show Info</button>
+        <div id="test5Result"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = '/my-webapp-project/api/tasks';
+
+        async function testAPIConnection() {
+            const resultDiv = document.getElementById('test1Result');
+            resultDiv.innerHTML = '<div class="result">Testing...</div>';
+
+            try {
+                const response = await fetch(API_BASE_URL, { method: 'GET' });
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            <span class="status status-ok">SUCCESS</span><br>
+                            Status: ${response.status} ${response.statusText}<br>
+                            API is accessible and responding!<br>
+                            Content-Type: ${response.headers.get('Content-Type')}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result error">
+                            <span class="status status-error">ERROR</span><br>
+                            Status: ${response.status} ${response.statusText}<br>
+                            API returned an error response
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <span class="status status-error">FAILED</span><br>
+                        Error: ${error.message}<br><br>
+                        <strong>Possible causes:</strong><br>
+                        • Tomcat is not running<br>
+                        • Application is not deployed<br>
+                        • Wrong port or context path<br>
+                        • Network issue
+                    </div>
+                `;
+            }
+        }
+
+        async function testGetAllTasks() {
+            const resultDiv = document.getElementById('test2Result');
+            resultDiv.innerHTML = '<div class="result">Loading tasks...</div>';
+
+            try {
+                const response = await fetch(API_BASE_URL, { method: 'GET' });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const tasks = await response.json();
+
+                resultDiv.innerHTML = `
+                    <div class="result success">
+                        <span class="status status-ok">SUCCESS</span><br>
+                        Found ${tasks.length} tasks:<br><br>
+                        ${JSON.stringify(tasks, null, 2)}
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <span class="status status-error">FAILED</span><br>
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function testCreateTask() {
+            const resultDiv = document.getElementById('test3Result');
+            const title = document.getElementById('testTaskTitle').value.trim();
+
+            if (!title) {
+                resultDiv.innerHTML = '<div class="result error">Please enter a task title</div>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="result">Creating task...</div>';
+
+            try {
+                const requestBody = {
+                    title: title,
+                    completed: false
+                };
+
+                console.log('Request URL:', API_BASE_URL);
+                console.log('Request Body:', JSON.stringify(requestBody));
+
+                const response = await fetch(API_BASE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                console.log('Response Status:', response.status);
+                console.log('Response OK:', response.ok);
+
+                const responseText = await response.text();
+                console.log('Response Text:', responseText);
+
+                if (!response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="result error">
+                            <span class="status status-error">FAILED</span><br>
+                            Status: ${response.status} ${response.statusText}<br>
+                            Response: ${responseText}<br><br>
+                            <strong>Check browser console for details</strong>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const createdTask = JSON.parse(responseText);
+
+                resultDiv.innerHTML = `
+                    <div class="result success">
+                        <span class="status status-ok">SUCCESS</span><br>
+                        Task created successfully!<br><br>
+                        ${JSON.stringify(createdTask, null, 2)}<br><br>
+                        <strong>Now try adding a task in the main application!</strong>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <span class="status status-error">FAILED</span><br>
+                        Error: ${error.message}<br><br>
+                        <strong>Possible causes:</strong><br>
+                        • Backend API not running<br>
+                        • CORS issues (check console)<br>
+                        • Network connectivity issue<br>
+                        • JSON parsing error<br><br>
+                        <strong>Check browser console (F12) for details</strong>
+                    </div>
+                `;
+                console.error('Full error:', error);
+            }
+        }
+
+        async function testDatabaseStatus() {
+            const resultDiv = document.getElementById('test4Result');
+
+            resultDiv.innerHTML = `
+                <div class="result">
+                    <strong>Configuration:</strong><br>
+                    API Base URL: ${API_BASE_URL}<br>
+                    Full URL: ${window.location.origin}${API_BASE_URL}<br>
+                    Database: jdbc:sqlite:/home/osm/IdeaProjects/SE3318/todo.db<br>
+                    JDBC Driver: org.sqlite.JDBC<br><br>
+
+                    <strong>Expected Endpoints:</strong><br>
+                    GET ${API_BASE_URL} - Get all tasks<br>
+                    GET ${API_BASE_URL}/{id} - Get task by ID<br>
+                    POST ${API_BASE_URL} - Create task<br>
+                    PUT ${API_BASE_URL}/{id} - Update task<br>
+                    DELETE ${API_BASE_URL}/{id} - Delete task<br>
+                </div>
+            `;
+        }
+
+        function testBrowserInfo() {
+            const resultDiv = document.getElementById('test5Result');
+
+            resultDiv.innerHTML = `
+                <div class="result">
+                    <strong>Browser Information:</strong><br>
+                    User Agent: ${navigator.userAgent}<br>
+                    Platform: ${navigator.platform}<br>
+                    Language: ${navigator.language}<br>
+                    Online: ${navigator.onLine ? 'Yes' : 'No'}<br>
+                    Cookies Enabled: ${navigator.cookieEnabled ? 'Yes' : 'No'}<br><br>
+
+                    <strong>Current Page:</strong><br>
+                    Location: ${window.location.href}<br>
+                    Protocol: ${window.location.protocol}<br>
+                    Host: ${window.location.host}<br>
+                    Port: ${window.location.port || '(default)'}<br><br>
+
+                    <strong>API URL (Full):</strong><br>
+                    ${window.location.origin}${API_BASE_URL}
+                </div>
+            `;
+        }
+
+        // Auto-run first test on load
+        window.addEventListener('DOMContentLoaded', function() {
+            testAPIConnection();
+        });
+    </script>
+</body>
+</html>
+
