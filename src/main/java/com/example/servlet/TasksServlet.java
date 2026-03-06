@@ -4,11 +4,11 @@ import com.example.dao.TaskDAO;
 import com.example.model.Task;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
@@ -22,32 +22,42 @@ import java.util.List;
  * - PUT /api/tasks/{id} - Update a task
  * - DELETE /api/tasks/{id} - Delete a task
  */
-@WebServlet("/api/tasks/*")
+@WebServlet(urlPatterns = "/api/tasks/*", loadOnStartup = 1)
 public class TasksServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
-    private Gson gson = new Gson();
+    private transient Gson gson = new Gson();
 
     @Override
     public void init() throws ServletException {
         super.init();
-        // Initialize database on servlet startup
+        System.out.println("TasksServlet: init() called - servlet is loading!");
         TaskDAO.initializeDatabase();
+        System.out.println("TasksServlet: Database initialized successfully");
+    }
+
+    /**
+     * Set common response headers (CORS + JSON content type)
+     */
+    private void setCorsAndJsonHeaders(HttpServletResponse response) {
+        response.setHeader("Access-Control-Allow-Origin", "*");
+        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept");
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
     }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
+        setCorsAndJsonHeaders(response);
+        System.out.println("TasksServlet: doGet called, pathInfo=" + request.getPathInfo());
 
         String pathInfo = request.getPathInfo();
 
         try {
             if (pathInfo == null || pathInfo.equals("/")) {
-                // GET /api/tasks - Get all tasks
                 getAllTasks(response);
             } else {
-                // GET /api/tasks/{id} - Get a specific task
                 String[] pathParts = pathInfo.split("/");
                 if (pathParts.length == 2 && !pathParts[1].isEmpty()) {
                     int id = Integer.parseInt(pathParts[1]);
@@ -59,6 +69,8 @@ public class TasksServlet extends HttpServlet {
         } catch (NumberFormatException e) {
             sendError(response, 400, "Invalid task ID format");
         } catch (Exception e) {
+            System.err.println("TasksServlet doGet error: " + e.getMessage());
+            e.printStackTrace();
             sendError(response, 500, "Internal server error: " + e.getMessage());
         }
     }
@@ -66,31 +78,44 @@ public class TasksServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
+        setCorsAndJsonHeaders(response);
+        System.out.println("TasksServlet: doPost called, pathInfo=" + request.getPathInfo());
 
         try {
-            String body = request.getReader().lines()
-                    .reduce("", (acc, actual) -> acc + actual);
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = request.getReader().readLine()) != null) {
+                sb.append(line);
+            }
+            String body = sb.toString();
+            System.out.println("TasksServlet: POST body = " + body);
+
+            if (body.trim().isEmpty()) {
+                sendError(response, 400, "Request body is empty");
+                return;
+            }
 
             JsonObject jsonObject = gson.fromJson(body, JsonObject.class);
 
-            if (!jsonObject.has("title") || jsonObject.get("title").getAsString().trim().isEmpty()) {
+            if (jsonObject == null || !jsonObject.has("title") || jsonObject.get("title").getAsString().trim().isEmpty()) {
                 sendError(response, 400, "Title is required");
                 return;
             }
 
             Task task = new Task();
-            task.setTitle(jsonObject.get("title").getAsString());
+            task.setTitle(jsonObject.get("title").getAsString().trim());
             task.setCompleted(jsonObject.has("completed") && jsonObject.get("completed").getAsBoolean());
 
             Task createdTask = TaskDAO.createTask(task);
+            System.out.println("TasksServlet: Task created with id=" + createdTask.getId());
 
             response.setStatus(HttpServletResponse.SC_CREATED);
             PrintWriter out = response.getWriter();
             out.print(gson.toJson(createdTask));
             out.flush();
         } catch (Exception e) {
+            System.err.println("TasksServlet doPost error: " + e.getMessage());
+            e.printStackTrace();
             sendError(response, 500, "Internal server error: " + e.getMessage());
         }
     }
@@ -98,16 +123,17 @@ public class TasksServlet extends HttpServlet {
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        // Add CORS headers
-        response.setHeader("Access-Control-Allow-Origin", "*");
-        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        response.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
+        setCorsAndJsonHeaders(response);
+        System.out.println("TasksServlet: doPut called, pathInfo=" + request.getPathInfo());
 
         try {
             String pathInfo = request.getPathInfo();
+
+            if (pathInfo == null || pathInfo.equals("/")) {
+                sendError(response, 400, "Task ID is required");
+                return;
+            }
+
             String[] pathParts = pathInfo.split("/");
 
             if (pathParts.length != 2 || pathParts[1].isEmpty()) {
@@ -117,8 +143,13 @@ public class TasksServlet extends HttpServlet {
 
             int id = Integer.parseInt(pathParts[1]);
 
-            String body = request.getReader().lines()
-                    .reduce("", (acc, actual) -> acc + actual);
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = request.getReader().readLine()) != null) {
+                sb.append(line);
+            }
+            String body = sb.toString();
+            System.out.println("TasksServlet: PUT body = " + body);
 
             JsonObject jsonObject = gson.fromJson(body, JsonObject.class);
 
@@ -129,7 +160,7 @@ public class TasksServlet extends HttpServlet {
             }
 
             if (jsonObject.has("title") && !jsonObject.get("title").getAsString().trim().isEmpty()) {
-                existingTask.setTitle(jsonObject.get("title").getAsString());
+                existingTask.setTitle(jsonObject.get("title").getAsString().trim());
             }
 
             if (jsonObject.has("completed")) {
@@ -148,6 +179,8 @@ public class TasksServlet extends HttpServlet {
         } catch (NumberFormatException e) {
             sendError(response, 400, "Invalid task ID format");
         } catch (Exception e) {
+            System.err.println("TasksServlet doPut error: " + e.getMessage());
+            e.printStackTrace();
             sendError(response, 500, "Internal server error: " + e.getMessage());
         }
     }
@@ -155,16 +188,17 @@ public class TasksServlet extends HttpServlet {
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        // Add CORS headers
-        response.setHeader("Access-Control-Allow-Origin", "*");
-        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        response.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
+        setCorsAndJsonHeaders(response);
+        System.out.println("TasksServlet: doDelete called, pathInfo=" + request.getPathInfo());
 
         try {
             String pathInfo = request.getPathInfo();
+
+            if (pathInfo == null || pathInfo.equals("/")) {
+                sendError(response, 400, "Task ID is required");
+                return;
+            }
+
             String[] pathParts = pathInfo.split("/");
 
             if (pathParts.length != 2 || pathParts[1].isEmpty()) {
@@ -173,12 +207,6 @@ public class TasksServlet extends HttpServlet {
             }
 
             int id = Integer.parseInt(pathParts[1]);
-
-            Task task = TaskDAO.getTaskById(id);
-            if (task == null) {
-                sendError(response, 404, "Task not found");
-                return;
-            }
 
             boolean deleted = TaskDAO.deleteTask(id);
 
@@ -189,11 +217,13 @@ public class TasksServlet extends HttpServlet {
                 out.print(successResponse.toString());
                 out.flush();
             } else {
-                sendError(response, 500, "Failed to delete task");
+                sendError(response, 404, "Task not found or already deleted");
             }
         } catch (NumberFormatException e) {
             sendError(response, 400, "Invalid task ID format");
         } catch (Exception e) {
+            System.err.println("TasksServlet doDelete error: " + e.getMessage());
+            e.printStackTrace();
             sendError(response, 500, "Internal server error: " + e.getMessage());
         }
     }
@@ -201,26 +231,20 @@ public class TasksServlet extends HttpServlet {
     @Override
     protected void doOptions(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        // Handle CORS preflight
         response.setHeader("Access-Control-Allow-Origin", "*");
         response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept");
         response.setStatus(HttpServletResponse.SC_OK);
     }
 
-    /**
-     * Get all tasks
-     */
     private void getAllTasks(HttpServletResponse response) throws IOException {
         List<Task> tasks = TaskDAO.getAllTasks();
+        System.out.println("TasksServlet: getAllTasks returning " + tasks.size() + " tasks");
         PrintWriter out = response.getWriter();
         out.print(gson.toJson(tasks));
         out.flush();
     }
 
-    /**
-     * Get a specific task by id
-     */
     private void getTaskById(HttpServletResponse response, int id) throws IOException {
         Task task = TaskDAO.getTaskById(id);
 
@@ -234,9 +258,6 @@ public class TasksServlet extends HttpServlet {
         out.flush();
     }
 
-    /**
-     * Send error response
-     */
     private void sendError(HttpServletResponse response, int statusCode, String message) throws IOException {
         response.setStatus(statusCode);
         JsonObject errorResponse = new JsonObject();
@@ -246,4 +267,3 @@ public class TasksServlet extends HttpServlet {
         out.flush();
     }
 }
-
